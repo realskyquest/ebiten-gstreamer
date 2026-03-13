@@ -298,6 +298,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			scale := math.Min(scaleX, scaleY)
 
 			opts := &ebiten.DrawImageOptions{}
+			opts.Filter = ebiten.FilterLinear
 			opts.GeoM.Scale(scale, scale)
 			opts.GeoM.Translate(
 				(float64(sw)-float64(vw)*scale)/2,
