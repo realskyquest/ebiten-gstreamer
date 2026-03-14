@@ -372,7 +372,7 @@ func (p *Player) Pause() {
 	p.playing.Store(false)
 }
 
-// IsPlaying reports whether the player is currently playing.
+// IsPlaying returns boolean indicating whether the player is playing.
 func (p *Player) IsPlaying() bool {
 	return p.playing.Load()
 }
@@ -382,23 +382,24 @@ func (p *Player) IsEOS() bool {
 	return p.eos.Load()
 }
 
-// Seek seeks to the given position.
-// Panics if the source is not seekable (e.g. live stream).
-func (p *Player) Seek(d time.Duration) {
+// SetPosition sets the position with the given offset.
+// SetPosition returns error when seeking the source returns error.
+func (p *Player) SetPosition(offset time.Duration) error {
 	if p.closed.Load() {
-		panic("video: Seek called on closed Player")
+		return fmt.Errorf("seek called on (%w)", ErrPlayerClosed)
 	}
 
 	// SeekTime takes time.Duration and SeekFlags directly on Element
-	ok := p.pipeline.SeekTime(d, gst.SeekFlagFlush|gst.SeekFlagAccurate)
+	ok := p.pipeline.SeekTime(offset, gst.SeekFlagFlush|gst.SeekFlagAccurate)
 	if !ok {
-		panic("video: Seek failed — source may not be seekable")
+		return fmt.Errorf("seek failed (%w)", ErrNotSeekable)
 	}
 
 	p.eos.Store(false)
+	return nil
 }
 
-// Position returns the current playback position.
+// Position returns the current position in the time.
 func (p *Player) Position() time.Duration {
 	if p.closed.Load() {
 		return 0
@@ -410,8 +411,14 @@ func (p *Player) Position() time.Duration {
 	return time.Duration(pos)
 }
 
+// Rewind rewinds the current position to the start.
+// Rewind returns error when seeking the source returns error.
+func (p *Player) Rewind() error {
+	return p.SetPosition(0)
+}
+
 // Duration returns the total duration of the video.
-// Returns 0 if the duration is unknown (e.g. live stream).
+// Duration returns 0 if the duration is unknown (e.g. live stream).
 func (p *Player) Duration() time.Duration {
 	if p.closed.Load() {
 		return 0
@@ -462,13 +469,17 @@ func (p *Player) SetLoop(loop bool) {
 }
 
 // VideoSize returns the video dimensions (width, height).
-// Returns (0, 0) if not yet known (before first frame).
+// VideoSize returns (0, 0) if not yet known (before first frame).
 func (p *Player) VideoSize() (int, int) {
 	return p.videoW, p.videoH
 }
 
-// SetRate sets the playback rate. 1.0 is normal, 2.0 is double speed.
-// Negative values play in reverse (if the source supports it).
+// Rate returns the current playback rate.
+func (p *Player) Rate() float64 {
+	return p.opts.Rate
+}
+
+// SetRate sets the playback rate.
 func (p *Player) SetRate(rate float64) {
 	if p.closed.Load() {
 		panic("video: SetRate called on closed Player")
@@ -505,10 +516,11 @@ func (p *Player) SetRate(rate float64) {
 	}
 
 	p.pipeline.SendEvent(ev)
+	p.opts.Rate = rate
 }
 
-// Close stops playback and releases all resources.
-// After Close, the Player must not be used.
+// Close closes the stream.
+// Close returns error when the player is already closed.
 func (p *Player) Close() error {
 	if p.closed.CompareAndSwap(false, true) {
 		p.pipeline.BlockSetState(gst.StateNull)

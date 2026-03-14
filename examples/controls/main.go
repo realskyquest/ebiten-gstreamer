@@ -186,7 +186,10 @@ func (g *Game) Update() error {
 
 	// Restart / Rewind to beginning
 	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
-		p.Seek(0)
+		if err := p.Rewind(); err != nil {
+			g.showToast(fmt.Sprintf("rewind failed: %s", err))
+			return nil
+		}
 		if !p.IsPlaying() {
 			p.Play()
 		}
@@ -203,7 +206,10 @@ func (g *Game) Update() error {
 		if dur := p.Duration(); dur > 0 && target > dur {
 			target = dur
 		}
-		p.Seek(target)
+		if err := p.SetPosition(target); err != nil {
+			g.showToast(fmt.Sprintf("seek failed: %s", err))
+			return nil
+		}
 		g.showToast(fmt.Sprintf("+%s", fmtDur(step)))
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyLeft) {
@@ -215,7 +221,10 @@ func (g *Game) Update() error {
 		if target < 0 {
 			target = 0
 		}
-		p.Seek(target)
+		if err := p.SetPosition(target); err != nil {
+			g.showToast(fmt.Sprintf("seek failed: %s", err))
+			return nil
+		}
 		g.showToast(fmt.Sprintf("-%s", fmtDur(step)))
 	}
 

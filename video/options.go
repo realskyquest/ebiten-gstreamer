@@ -5,6 +5,10 @@ type PlayerOptions struct {
 	// Loop makes the video restart from the beginning when it reaches the end.
 	Loop bool
 
+	// Rate sets the playback rate. 1.0 is normal, 2.0 is double speed.
+	// Negative values play in reverse (if the source supports it).
+	Rate float64
+
 	// Volume sets the initial volume. Range: 0.0 (muted) to 1.0 (full). Default: 1.0.
 	Volume float64
 
@@ -35,6 +39,9 @@ type PlayerOptions struct {
 func (o *PlayerOptions) defaults() {
 	if o.Volume == 0 {
 		o.Volume = 1.0
+	}
+	if o.Rate == 0 {
+		o.Rate = 1.0
 	}
 	if o.MaxBufferedFrames == 0 {
 		o.MaxBufferedFrames = 2
