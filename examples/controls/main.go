@@ -484,11 +484,13 @@ func main() {
 		} else {
 			game.player = player
 			player.Play()
+			ebiten.SetWindowTitle(fmt.Sprintf("Video Player — %s", filepath.Base(source)))
 		}
+	} else {
+		ebiten.SetWindowTitle("Video Player, Drop a file to play")
 	}
 
 	ebiten.SetWindowSize(1280, 720)
-	ebiten.SetWindowTitle("Video Player, Drop a file to play")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(60)
 
