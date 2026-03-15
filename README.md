@@ -16,23 +16,7 @@ GStreamer-backed video playback for [Ebitengine](https://ebitengine.org/). Play 
 
 ### GStreamer
 
-You must have GStreamer installed on your system with the necessary plugins:
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install gstreamer1.0-tools gstreamer1.0-plugins-base \
-  gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-ugly gstreamer1.0-libav
-```
-
-**macOS:**
-```bash
-brew install gstreamer gst-plugins-base gst-plugins-good \
-  gst-plugins-bad gst-plugins-ugly gst-libav
-```
-
-**Windows:**
-Download and install from [GStreamer website](https://gstreamer.freedesktop.org/download/).
+You must have GStreamer installed on your system with the necessary plugins: https://gstreamer.freedesktop.org/documentation/installing
 
 ## Installation
 
@@ -118,33 +102,6 @@ player, err := ctx.NewPlayer(source string, opts *PlayerOptions)
 - HTTP(S): `"https://example.com/video.mp4"`
 - RTSP: `"rtsp://camera.local/stream"`
 
-**PlayerOptions:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `Loop` | `bool` | `false` | Restart video when it ends |
-| `Volume` | `float64` | `1.0` | Volume level (0.0-1.0) |
-| `Width` | `int` | `0` | Force output width (0 = source width) |
-| `Height` | `int` | `0` | Force output height (0 = source height) |
-| `MaxBufferedFrames` | `uint` | `2` | Queue depth for decoded frames |
-| `OnEnd` | `func()` | `nil` | Called when video reaches end |
-| `OnError` | `func(error)` | `nil` | Called on pipeline errors |
-| `OnBuffering` | `func(int)` | `nil` | Called with buffering percentage (0-100) |
-
-**Player methods:**
-
-```go
-player.Play()              // Start or resume playback
-player.Pause()             // Pause playback
-player.SetPosition(pos)    // Seek to time.Time position
-player.Position() time.Time // Current playback position
-player.Duration() time.Time // Total video duration
-player.VideoSize() (w, h)  // Native video dimensions
-player.Frame() *ebiten.Image // Current decoded frame (nil if not ready)
-player.SetVolume(vol)      // Set volume (0.0-1.0)
-player.Close()             // Release resources
-```
-
 ### Thread Safety
 
 All Player methods are safe for concurrent use. The `Frame()` method can be called from the Draw loop while other goroutines control playback.
@@ -173,34 +130,24 @@ go run ./examples/controls video.mp4
 
 ## How It Works
 
+### Native (GStreamer)
 Each `Player` creates its own GStreamer pipeline:
-
 ```
 uridecodebin → videoconvert → videoscale → capsfilter → appsink
 ```
-
 - Decoding happens in a dedicated goroutine
 - Frames are double-buffered for thread-safe access
 - The `appsink` pushes decoded video frames to Ebiten
 - Audio is automatically handled by GStreamer's default audio sink
 
-## Supported Formats
-
-GStreamer supports virtually all common video formats through its plugin system. Commonly supported containers include:
-
-- MP4 (H.264, H.265/HEVC)
-- WebM (VP8, VP9)
-- AVI
-- MKV
-- MOV
-- FLV
-- WMV
-- M4V
-- TS
-- OGV
-- 3GP
-
-Codec support depends on your GStreamer installation. Use `gst-inspect-1.0` to check available decoders.
+### Web (HTML5)
+Each `Player` creates a hidden `<video>` element and an offscreen `<canvas>`:
+```
+<video src="blob://..."> → drawImage() → <canvas> → getImageData() → ebiten.Image
+```
+- The browser handles all decoding natively — no goroutines or pipelines
+- Every call to `Frame()` draws the current video frame onto the canvas and reads back the raw RGBA pixels via `getImageData`
+- Audio is handled directly by the browser through the `<video>` element
 
 ## License
 

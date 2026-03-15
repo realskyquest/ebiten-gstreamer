@@ -1,3 +1,5 @@
+//go:build !js
+
 package video
 
 import (
@@ -12,7 +14,14 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// Player plays a single video. Each Player has its own GStreamer pipeline.
+// initContext performs platform-specific Context initialization.
+// On native it initializes the GStreamer runtime.
+func initContext(_ *Context) error {
+	gst.Init(nil)
+	return nil
+}
+
+// Player plays a single video. Each Player owns its own GStreamer pipeline.
 // All methods are safe for concurrent use.
 type Player struct {
 	ctx  *Context
@@ -258,7 +267,7 @@ func (p *Player) pullSamples() {
 			continue
 		}
 
-		// Resolve video dimensions from caps on first frame
+		// Resolve video dimensions from caps on first frame.
 		p.sizeOnce.Do(func() {
 			caps := sample.GetCaps()
 			if caps != nil {
@@ -313,10 +322,10 @@ func (p *Player) pullSamples() {
 }
 
 // Frame returns the current video frame as an *ebiten.Image.
-// Call this in your [ebiten.Game.Draw] method.
+// Call this inside [ebiten.Game.Draw].
 //
 // Returns nil if no frame is available yet.
-// The returned image is owned by the Player, and must not be disposed of.
+// The returned image is owned by the Player and must not be disposed of by the caller.
 func (p *Player) Frame() *ebiten.Image {
 	if p.closed.Load() {
 		return nil
@@ -389,7 +398,6 @@ func (p *Player) SetPosition(offset time.Duration) error {
 		return fmt.Errorf("seek called on (%w)", ErrPlayerClosed)
 	}
 
-	// SeekTime takes time.Duration and SeekFlags directly on Element
 	ok := p.pipeline.SeekTime(offset, gst.SeekFlagFlush|gst.SeekFlagAccurate)
 	if !ok {
 		return fmt.Errorf("seek failed (%w)", ErrNotSeekable)
