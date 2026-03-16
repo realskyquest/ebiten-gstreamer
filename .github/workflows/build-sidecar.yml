@@ -75,54 +75,83 @@ jobs:
     name: Windows (amd64)
     runs-on: windows-latest
 
-    defaults:
-      run:
-        shell: msys2 {0}
-
     steps:
       - uses: actions/checkout@v4
 
-      - uses: msys2/setup-msys2@v2
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-x86_64-go
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-gstreamer
             mingw-w64-x86_64-gst-plugins-base
             mingw-w64-x86_64-gst-plugins-good
             mingw-w64-x86_64-gst-plugins-bad
+            mingw-w64-x86_64-ntldd
 
       - name: Build sidecar
-        env:
-          CGO_ENABLED: "1"
-        run: go build -o sidecar.exe ./cmd/sidecar
-
-      - name: Bundle all DLLs
+        shell: msys2 {0}
         run: |
-          mkdir -p dist/lib/gstreamer-1.0
+          export PATH="$(cygpath "$GOROOT")/bin:$PATH"
+          export CGO_ENABLED=1
+          export CC=gcc
+          go build -o sidecar.exe ./cmd/sidecar
 
-          cp sidecar.exe dist/
+      - name: Bundle DLLs
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
 
-          # Copy GStreamer plugins
-          cp /mingw64/lib/gstreamer-1.0/*.dll dist/lib/gstreamer-1.0/
+          DIST="dist"
+          mkdir -p "$DIST/lib/gstreamer-1.0"
 
-          # Recursively find and copy ALL DLL dependencies
-          prev=0
-          while true; do
-            find dist/ \( -name '*.dll' -o -name '*.exe' \) \
-              -exec ldd {} \; 2>/dev/null \
-              | grep -i '/mingw64/' \
-              | awk '{print $3}' \
-              | sort -u \
-              | xargs -I{} cp -n {} dist/ 2>/dev/null || true
+          # Copy the binary
+          cp sidecar.exe "$DIST/"
 
-            curr=$(find dist/ -name '*.dll' | wc -l)
-            [ "$curr" -eq "$prev" ] && break
-            prev=$curr
+          # ---------- helper: recursively resolve MINGW64 DLL deps ----------
+          collect_deps() {
+            local binary="$1"
+            ntldd -R "$binary" 2>/dev/null \
+              | grep -io '=> /mingw64/[^ ]*' \
+              | sed 's/^=> //' \
+              | sort -u
+          }
+
+          # ---------- 1. DLLs needed by the main binary ----------
+          for dll in $(collect_deps sidecar.exe); do
+            cp -n "$dll" "$DIST/" 2>/dev/null || true
           done
+
+          # ---------- 2. GStreamer plugin .dlls ----------
+          cp /mingw64/lib/gstreamer-1.0/*.dll "$DIST/lib/gstreamer-1.0/"
+
+          # ---------- 3. DLLs needed by the plugins themselves ----------
+          for plugin in "$DIST/lib/gstreamer-1.0/"*.dll; do
+            for dll in $(collect_deps "$plugin"); do
+              cp -n "$dll" "$DIST/" 2>/dev/null || true
+            done
+          done
+
+          # ---------- 4. Verify no MINGW64 deps are missing ----------
+          echo "=== Bundled DLLs ==="
+          ls -1 "$DIST/"*.dll | wc -l
+          echo ""
+
+          MISSING=$(ntldd -R "$DIST/sidecar.exe" 2>/dev/null \
+            | grep -i 'not found' || true)
+          if [ -n "$MISSING" ]; then
+            echo "WARNING: missing DLLs:"
+            echo "$MISSING"
+          else
+            echo "All DLL dependencies resolved."
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
