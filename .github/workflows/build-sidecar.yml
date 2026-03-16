@@ -95,7 +95,6 @@ jobs:
             mingw-w64-x86_64-gst-plugins-base
             mingw-w64-x86_64-gst-plugins-good
             mingw-w64-x86_64-gst-plugins-bad
-            mingw-w64-x86_64-ntldd
 
       - name: Build sidecar
         shell: msys2 {0}
@@ -103,19 +102,6 @@ jobs:
           export CGO_ENABLED=1
           export CC=gcc
           go build -o sidecar-windows-amd64.exe ./cmd/sidecar
-
-      - name: Download GStreamer installer
-        shell: msys2 {0}
-        run: |
-          GST_VERSION=$(curl -s https://gstreamer.freedesktop.org/data/pkg/windows/ \
-            | grep -oP '\d+\.\d+\.\d+' \
-            | sort -V \
-            | tail -1)
-          echo "Latest GStreamer: $GST_VERSION"
-
-          URL="https://gstreamer.freedesktop.org/data/pkg/windows/${GST_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GST_VERSION}.msi"
-          curl -L -o dist/gstreamer-runtime.msi "$URL"
-          ls -lh dist/gstreamer-runtime.msi
 
       - uses: actions/upload-artifact@v4
         with:
