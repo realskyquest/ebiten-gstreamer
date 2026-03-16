@@ -104,37 +104,20 @@ jobs:
           export CC=gcc
           go build -o sidecar-windows-amd64.exe ./cmd/sidecar
 
-      - name: Bundle DLLs
+      - name: Download GStreamer installer
         shell: msys2 {0}
         run: |
-          set -euo pipefail
+          # Scrape latest version from the download page
+          GST_VERSION=$(curl -s https://gstreamer.freedesktop.org/data/pkg/windows/ \
+            | grep -oP '\d+\.\d+\.\d+' \
+            | sort -V \
+            | tail -1)
+          echo "Latest GStreamer: $GST_VERSION"
 
-          DIST="dist"
-          mkdir -p "$DIST/lib/gstreamer-1.0"
-
-          cp sidecar-windows-amd64.exe "$DIST/"
-
-          collect_deps() {
-            ntldd -R "$1" 2>/dev/null \
-              | grep -io '=> /mingw64/[^ ]*' \
-              | sed 's/^=> //' \
-              | sort -u
-          }
-
-          for dll in $(collect_deps sidecar-windows-amd64.exe); do
-            cp -n "$dll" "$DIST/" 2>/dev/null || true
-          done
-
-          cp /mingw64/lib/gstreamer-1.0/*.dll "$DIST/lib/gstreamer-1.0/"
-
-          for plugin in "$DIST/lib/gstreamer-1.0/"*.dll; do
-            for dll in $(collect_deps "$plugin"); do
-              cp -n "$dll" "$DIST/" 2>/dev/null || true
-            done
-          done
-
-          echo "=== Bundled DLLs ==="
-          ls -1 "$DIST/"*.dll | wc -l
+          URL="https://gstreamer.freedesktop.org/data/pkg/windows/${GST_VERSION}/mingw/gstreamer-1.0-mingw-x86_64-${GST_VERSION}.msi"
+          echo "Downloading: $URL"
+          curl -L -o dist/gstreamer-mingw-runtime.msi "$URL"
+          ls -lh dist/gstreamer-mingw-runtime.msi
 
       - uses: actions/upload-artifact@v4
         with:
