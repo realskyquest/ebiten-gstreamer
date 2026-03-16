@@ -106,5 +106,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: sidecar-windows-amd64
-          path: dist/
+          path: sidecar-windows-amd64.exe
           retention-days: 7
