@@ -10,19 +10,80 @@ GStreamer-backed video playback for [Ebitengine](https://ebitengine.org/). Play 
 - **Frame-by-frame control**: Play, pause, seek, and retrieve current video frames as `*ebiten.Image`
 - **Customizable**: Volume control, looping, video scaling, and buffering options
 - **Event callbacks**: OnEnd, OnError, and OnBuffering hooks for responsive UI
-- **Cross-platform**: Works on Linux, macOS, and Windows (requires GStreamer)
+- **Cross-platform**: Works on Linux, macOS, Windows (requires GStreamer), and Web
 
 ## Requirements
 
-### GStreamer
+### GStreamer (Native platforms only)
 
-You must have GStreamer installed on your system with the necessary plugins: https://gstreamer.freedesktop.org/documentation/installing
+On **Linux, macOS, and Windows**, GStreamer must be installed on the user's device with the necessary plugins. The web build does not require GStreamer or any native dependencies, playback is handled entirely by the browser.
+
+Install GStreamer for your platform: https://gstreamer.freedesktop.org/documentation/installing
+
+> **Web builds** (`GOOS=js GOARCH=wasm`) have **no GStreamer requirement**. Video is decoded natively by the browser via an HTML5 `<video>` element.
 
 ## Installation
 
 ```bash
 go get github.com/realskyquest/ebiten-gstreamer/video
 ```
+
+## Building
+
+There are three backends, selected at build time. The public API is identical across all of them.
+
+### Native (CGo + GStreamer)
+
+The default build. Uses GStreamer directly via CGo bindings ([go-gst](https://github.com/go-gst/go-gst)). Requires GStreamer installed on the end user's machine.
+
+```bash
+go build ./...
+```
+
+**Requires:** GStreamer on the host at runtime. CGo toolchain at build time.
+
+---
+
+### Web (HTML5 `<video>`)
+
+Targets `js/wasm` via `GOOS=js GOARCH=wasm`. No GStreamer, no CGo, no native dependencies of any kind. Decoding is handled by the browser.
+
+```bash
+GOOS=js GOARCH=wasm go build ./...
+```
+
+**Requires:** Nothing, the browser handles everything.
+
+---
+
+### Sidecar (Pure Go / no CGo)
+
+Uses a separate **sidecar process** as the GStreamer backend, communicating over TCP loopback (control messages) and shared memory (RGBA frames). Your main application binary has **zero CGo**.
+
+```bash
+go build -tags sidecar ./...
+```
+
+The sidecar binary (which contains GStreamer + CGo) must be built separately and shipped alongside your application:
+
+```bash
+# Build the sidecar helper (this binary is the only one that links GStreamer)
+go build ./cmd/sidecar
+```
+
+**Requires:** GStreamer on the end user's machine (same as native). The sidecar binary must be present at runtime next to your application.
+
+> **Why use sidecar?** This build mode is useful when you need a CGo-free application binary with fast build times without any CGo side-effects.
+
+---
+
+### Summary
+
+| Build | Command | CGo in app binary | GStreamer required | Web |
+|---|---|---|---|---|
+| Native | `go build` | ✅ Yes | ✅ Yes | ❌ |
+| Web | `GOOS=js GOARCH=wasm go build` | ❌ No | ❌ No | ✅ |
+| Sidecar | `go build -tags sidecar` | ❌ No | ✅ Yes (sidecar) | ❌ |
 
 ## Quick Start
 
@@ -79,6 +140,8 @@ func main() {
 }
 ```
 
+The same code compiles and runs correctly under all three backends, no changes needed.
+
 ## API Reference
 
 ### Context
@@ -130,7 +193,8 @@ go run ./examples/controls video.mp4
 
 ## How It Works
 
-### Native (GStreamer)
+### Native (CGo + GStreamer)
+
 Each `Player` creates its own GStreamer pipeline:
 ```
 uridecodebin → videoconvert → videoscale → capsfilter → appsink
@@ -141,13 +205,28 @@ uridecodebin → videoconvert → videoscale → capsfilter → appsink
 - Audio is automatically handled by GStreamer's default audio sink
 
 ### Web (HTML5)
+
 Each `Player` creates a hidden `<video>` element and an offscreen `<canvas>`:
 ```
-<video src="blob://..."> → drawImage() → <canvas> → getImageData() → ebiten.Image
+<video src="."> → drawImage() → <canvas> → getImageData() → ebiten.Image
 ```
-- The browser handles all decoding natively — no goroutines or pipelines
+- The browser handles all decoding natively, no goroutines or pipelines
 - Every call to `Frame()` draws the current video frame onto the canvas and reads back the raw RGBA pixels via `getImageData`
 - Audio is handled directly by the browser through the `<video>` element
+- No GStreamer, no CGo, no native dependencies of any kind
+
+### Sidecar
+
+The application binary is pure Go with no CGo. A separate sidecar process owns all GStreamer and CGo code. The two processes communicate via:
+
+```
+[App binary (pure Go)] ─── TCP loopback ──→ [Sidecar (GStreamer + CGo)]
+                       ←── shared memory ─── (RGBA frames, zero-copy)
+```
+
+- **TCP loopback** carries control messages (play, pause, seek, volume, etc.) and state updates (position, duration, buffering)
+- **Shared memory** carries decoded RGBA frames with zero copy, no data is transferred over the network socket for video data
+- The sidecar runs the same GStreamer pipeline as the native
 
 ## License
 
