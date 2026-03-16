@@ -1,0 +1,109 @@
+name: Build Sidecar
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Linux (amd64)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install GStreamer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-tools
+
+      - name: Build sidecar
+        run: go build -o sidecar-linux-amd64 ./cmd/sidecar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-linux-amd64
+          path: sidecar-linux-amd64
+          retention-days: 7
+
+  build-macos:
+    name: macOS (arm64)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install GStreamer
+        run: |
+          brew install \
+            gstreamer \
+            gst-plugins-base \
+            gst-plugins-good \
+            gst-plugins-bad \
+
+
+      - name: Build sidecar
+        env:
+          CGO_ENABLED: "1"
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig
+        run: go build -o sidecar-macos-arm64 ./cmd/sidecar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-macos-arm64
+          path: sidecar-macos-arm64
+          retention-days: 7
+
+  build-windows:
+    name: Windows (amd64)
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-go
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-gstreamer
+            mingw-w64-x86_64-gst-plugins-base
+            mingw-w64-x86_64-gst-plugins-good
+            mingw-w64-x86_64-gst-plugins-bad
+
+
+      - name: Build sidecar
+        env:
+          CGO_ENABLED: "1"
+        run: go build -o sidecar-windows-amd64.exe ./cmd/sidecar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-windows-amd64
+          path: sidecar-windows-amd64.exe
+          retention-days: 7
