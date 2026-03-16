@@ -59,7 +59,6 @@ jobs:
             gst-plugins-good \
             gst-plugins-bad \
 
-
       - name: Build sidecar
         env:
           CGO_ENABLED: "1"
@@ -96,23 +95,13 @@ jobs:
             mingw-w64-x86_64-gst-plugins-good
             mingw-w64-x86_64-gst-plugins-bad
 
-
       - name: Build sidecar
         env:
           CGO_ENABLED: "1"
-        run: go build -o sidecar-windows-amd64.exe ./cmd/sidecar
-
-      - name: Collect DLLs
-        run: |
-          mkdir -p dist
-          cp sidecar-windows-amd64.exe dist/
-          ldd sidecar-windows-amd64.exe \
-            | grep -i mingw \
-            | awk '{print $3}' \
-            | xargs -I{} cp {} dist/
+        run: go build -ldflags '-extldflags "-static"' -o sidecar-windows-amd64.exe ./cmd/sidecar
 
       - uses: actions/upload-artifact@v4
         with:
           name: sidecar-windows-amd64
-          path: dist/
+          path: sidecar-windows-amd64.exe
           retention-days: 7
