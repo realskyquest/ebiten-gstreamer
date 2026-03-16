@@ -32,12 +32,12 @@ jobs:
             gstreamer1.0-tools
 
       - name: Build sidecar
-        run: go build -o sidecar-linux-amd64 ./cmd/sidecar
+        run: go build -o sidecar ./cmd/sidecar
 
       - uses: actions/upload-artifact@v4
         with:
           name: sidecar-linux-amd64
-          path: sidecar-linux-amd64
+          path: sidecar
           retention-days: 7
 
   build-macos:
@@ -63,12 +63,12 @@ jobs:
         env:
           CGO_ENABLED: "1"
           PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig
-        run: go build -o sidecar-macos-arm64 ./cmd/sidecar
+        run: go build -o sidecar ./cmd/sidecar
 
       - uses: actions/upload-artifact@v4
         with:
           name: sidecar-macos-arm64
-          path: sidecar-macos-arm64
+          path: sidecar
           retention-days: 7
 
   build-windows:
@@ -101,10 +101,10 @@ jobs:
         run: |
           export CGO_ENABLED=1
           export CC=gcc
-          go build -o sidecar-windows-amd64.exe ./cmd/sidecar
+          go build -o sidecar.exe ./cmd/sidecar
 
       - uses: actions/upload-artifact@v4
         with:
           name: sidecar-windows-amd64
-          path: sidecar-windows-amd64.exe
+          path: sidecar.exe
           retention-days: 7

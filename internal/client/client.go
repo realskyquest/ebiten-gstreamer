@@ -66,7 +66,7 @@ type Config struct {
 // On Windows it looks for ./sidecar.exe; on all other platforms ./sidecar.
 func sidecarBin() string {
 	if runtime.GOOS == "windows" {
-		return "./sidecar.exe"
+		return ".\\sidecar.exe"
 	}
 	return "./sidecar"
 }
