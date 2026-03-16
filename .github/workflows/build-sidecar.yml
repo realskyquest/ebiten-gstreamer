@@ -102,8 +102,17 @@ jobs:
           CGO_ENABLED: "1"
         run: go build -o sidecar-windows-amd64.exe ./cmd/sidecar
 
+      - name: Collect DLLs
+        run: |
+          mkdir -p dist
+          cp sidecar-windows-amd64.exe dist/
+          ldd sidecar-windows-amd64.exe \
+            | grep -i mingw \
+            | awk '{print $3}' \
+            | xargs -I{} cp {} dist/
+
       - uses: actions/upload-artifact@v4
         with:
           name: sidecar-windows-amd64
-          path: sidecar-windows-amd64.exe
+          path: dist/
           retention-days: 7

@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -37,7 +38,6 @@ type EventHandler struct {
 	OnBuffering    func(percent int)
 }
 
-// PlayerOptions
 type PlayerOptions struct {
 	Width           int
 	Height          int
@@ -62,9 +62,18 @@ type Config struct {
 	MaxHeight  uint32
 }
 
+// sidecarBin returns the platform-appropriate sidecar binary name.
+// On Windows it looks for ./sidecar.exe; on all other platforms ./sidecar.
+func sidecarBin() string {
+	if runtime.GOOS == "windows" {
+		return "./sidecar.exe"
+	}
+	return "./sidecar"
+}
+
 func DefaultConfig() Config {
 	return Config{
-		SidecarBin: "./sidecar",
+		SidecarBin: sidecarBin(),
 		ShmName:    fmt.Sprintf("vp_%d", os.Getpid()),
 		MaxWidth:   3840,
 		MaxHeight:  2160,
@@ -164,8 +173,6 @@ func (p *Player) Start() error {
 	return nil
 }
 
-// ----- Commands -----
-
 // Open opens a media URI. This builds the pipeline in the sidecar.
 func (p *Player) Open(uri string, opts PlayerOptions) error {
 	return p.conn.Send(protocol.CmdOpen, &protocol.OpenPayload{
@@ -215,8 +222,6 @@ func (p *Player) SetLoop(loop bool) error {
 	return p.conn.Send(protocol.CmdSetLoop, &protocol.LoopPayload{Loop: loop})
 }
 
-// ----- Queries (cached from sidecar position updates) -----
-
 func (p *Player) IsPlaying() bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -265,8 +270,6 @@ func (p *Player) VideoSize() (int, int) {
 	return p.videoW, p.videoH
 }
 
-// ----- Frame Reading -----
-
 // ReadFrame returns the latest RGBA frame from shared memory, or nil if
 // no new frame is available. Call from your render loop.
 // Returned []byte is a fresh copy; safe to hold.
@@ -295,8 +298,6 @@ func (p *Player) ReadFrame() *Frame {
 	}
 }
 
-// ----- Lifecycle -----
-
 func (p *Player) Close() error {
 	if p.conn != nil {
 		p.conn.Send(protocol.CmdShutdown, nil)
@@ -320,8 +321,6 @@ func (p *Player) Close() error {
 func (p *Player) Done() <-chan struct{} {
 	return p.ctx.Done()
 }
-
-// ----- Internal -----
 
 func (p *Player) eventLoop() {
 	for {
