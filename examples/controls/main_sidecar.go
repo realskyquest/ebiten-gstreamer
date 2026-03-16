@@ -1,4 +1,4 @@
-//go:build !js && !sidecar
+//go:build sidecar && !js
 
 package main
 
@@ -14,8 +14,9 @@ import (
 	"github.com/realskyquest/ebiten-gstreamer/video"
 )
 
-// loadVideoFromFS copies the dropped file to a temp path on disk and plays it.
-// GStreamer requires a real filesystem path, so a temp file is necessary.
+// loadVideoFromFS in sidecar mode works identically to native: copy the
+// dropped file to a temp path and pass it to loadVideo. The sidecar process
+// handles the GStreamer side; this host process stays CGo-free.
 func (g *Game) loadVideoFromFS(droppedFS fs.FS, name string) {
 	src, err := droppedFS.Open(name)
 	if err != nil {
@@ -42,9 +43,7 @@ func (g *Game) loadVideoFromFS(droppedFS fs.FS, name string) {
 	}
 	tmpFile.Close()
 
-	// Remove the previous temp file only after the new one is fully written.
 	g.cleanupTemp()
-
 	g.tempFile = tmpFile.Name()
 	g.loadVideo(g.tempFile)
 }
@@ -57,6 +56,7 @@ func (g *Game) cleanupTemp() {
 	}
 }
 
+// clampVol mirrors native: allow slight amplification up to 1.5.
 func clampVol(v float64) float64 {
 	if v < 0 {
 		return 0
@@ -79,7 +79,6 @@ func main() {
 		savedVol: 0.8,
 	}
 
-	// Load a file or URL passed as the first command-line argument, if any.
 	if len(os.Args) >= 2 {
 		source := os.Args[1]
 		player, err := ctx.NewPlayer(source, &video.PlayerOptions{
@@ -106,6 +105,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Clean up any drag-and-drop temp file left over at exit.
 	game.cleanupTemp()
 }
