@@ -98,10 +98,26 @@ jobs:
       - name: Build sidecar
         env:
           CGO_ENABLED: "1"
-        run: go build -ldflags '-extldflags "-static"' -o sidecar-windows-amd64.exe ./cmd/sidecar
+        run: go build -o sidecar-windows-amd64.exe ./cmd/sidecar
+
+      - name: Bundle required DLLs
+        run: |
+          mkdir -p dist
+
+          cp sidecar-windows-amd64.exe dist/
+
+          # Copy every MinGW64 DLL the binary (transitively) needs
+          ldd sidecar-windows-amd64.exe \
+            | grep -i '/mingw64/' \
+            | awk '{print $3}'   \
+            | xargs -I{} cp {} dist/
+
+          # Copy GStreamer plugin DLLs so the runtime can load them
+          mkdir -p dist/lib/gstreamer-1.0
+          cp /mingw64/lib/gstreamer-1.0/*.dll dist/lib/gstreamer-1.0/
 
       - uses: actions/upload-artifact@v4
         with:
           name: sidecar-windows-amd64
-          path: sidecar-windows-amd64.exe
+          path: dist/
           retention-days: 7
