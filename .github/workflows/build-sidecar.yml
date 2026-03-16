@@ -57,7 +57,7 @@ jobs:
             gstreamer \
             gst-plugins-base \
             gst-plugins-good \
-            gst-plugins-bad \
+            gst-plugins-bad
 
       - name: Build sidecar
         env:
@@ -86,6 +86,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
+          path-type: inherit
           update: true
           install: >-
             mingw-w64-x86_64-gcc
@@ -99,10 +100,9 @@ jobs:
       - name: Build sidecar
         shell: msys2 {0}
         run: |
-          export PATH="$(cygpath "$GOROOT")/bin:$PATH"
           export CGO_ENABLED=1
           export CC=gcc
-          go build -o sidecar.exe ./cmd/sidecar
+          go build -o sidecar-windows-amd64.exe ./cmd/sidecar
 
       - name: Bundle DLLs
         shell: msys2 {0}
@@ -112,46 +112,29 @@ jobs:
           DIST="dist"
           mkdir -p "$DIST/lib/gstreamer-1.0"
 
-          # Copy the binary
-          cp sidecar.exe "$DIST/"
+          cp sidecar-windows-amd64.exe "$DIST/"
 
-          # ---------- helper: recursively resolve MINGW64 DLL deps ----------
           collect_deps() {
-            local binary="$1"
-            ntldd -R "$binary" 2>/dev/null \
+            ntldd -R "$1" 2>/dev/null \
               | grep -io '=> /mingw64/[^ ]*' \
               | sed 's/^=> //' \
               | sort -u
           }
 
-          # ---------- 1. DLLs needed by the main binary ----------
-          for dll in $(collect_deps sidecar.exe); do
+          for dll in $(collect_deps sidecar-windows-amd64.exe); do
             cp -n "$dll" "$DIST/" 2>/dev/null || true
           done
 
-          # ---------- 2. GStreamer plugin .dlls ----------
           cp /mingw64/lib/gstreamer-1.0/*.dll "$DIST/lib/gstreamer-1.0/"
 
-          # ---------- 3. DLLs needed by the plugins themselves ----------
           for plugin in "$DIST/lib/gstreamer-1.0/"*.dll; do
             for dll in $(collect_deps "$plugin"); do
               cp -n "$dll" "$DIST/" 2>/dev/null || true
             done
           done
 
-          # ---------- 4. Verify no MINGW64 deps are missing ----------
           echo "=== Bundled DLLs ==="
           ls -1 "$DIST/"*.dll | wc -l
-          echo ""
-
-          MISSING=$(ntldd -R "$DIST/sidecar.exe" 2>/dev/null \
-            | grep -i 'not found' || true)
-          if [ -n "$MISSING" ]; then
-            echo "WARNING: missing DLLs:"
-            echo "$MISSING"
-          else
-            echo "All DLL dependencies resolved."
-          fi
 
       - uses: actions/upload-artifact@v4
         with:
