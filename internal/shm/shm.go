@@ -173,10 +173,7 @@ func (s *SharedMem) ReadFrame(dst []byte, prevFrameNum uint64) (hdr FrameHeader,
 	}
 
 	offset := ShmHeaderSize + int(hdr.ActiveIndex)*maxFrameBytes(s.maxW, s.maxH)
-	n := int(hdr.FrameSize)
-	if n > len(dst) {
-		n = len(dst)
-	}
+	n := min(int(hdr.FrameSize), len(dst))
 	copy(dst[:n], s.data[offset:offset+n])
 	return hdr, true
 }

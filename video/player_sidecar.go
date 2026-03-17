@@ -1,4 +1,4 @@
-//go:build sidecar && !js
+//go:build !js && sidecar
 
 package video
 
