@@ -14,6 +14,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/realskyquest/ebiten-gstreamer/video"
+	"github.com/realskyquest/ebiten-gstreamer/videoutils"
 )
 
 const (
@@ -21,21 +22,6 @@ const (
 	seekStepLarge = 30 * time.Second
 	volumeStep    = 0.05
 )
-
-// videoExts is the set of file extensions accepted via drag-and-drop.
-var videoExts = map[string]bool{
-	".mp4":  true,
-	".mkv":  true,
-	".avi":  true,
-	".webm": true,
-	".mov":  true,
-	".flv":  true,
-	".wmv":  true,
-	".m4v":  true,
-	".ts":   true,
-	".ogv":  true,
-	".3gp":  true,
-}
 
 // rateKeys maps number keys 1–9 to playback rates.
 var rateKeys = []struct {
@@ -75,20 +61,18 @@ type Game struct {
 	tempFile string
 }
 
-func (g *Game) showToast(msg string) {
-	g.toast = msg
-	g.toastUntil = time.Now().Add(1500 * time.Millisecond)
-}
-
-// loadVideo closes the current player (if any) and opens a new video from source.
-func (g *Game) loadVideo(source string) {
-	if g.player != nil {
-		g.player.Close()
-		g.player = nil
+func (g *Game) loadVideo(droppedFS fs.FS, entry fs.DirEntry) {
+	tempFile, msg, err := videoutils.LoadVideoFromFS(droppedFS, entry.Name())
+	if err != nil {
+		g.showToast(msg)
+		log.Println(err)
+		return
 	}
-
-	player, err := g.videoCtx.NewPlayer(source, &video.PlayerOptions{
-		Volume: g.currentVolume(),
+	// Remove the previous temp file.
+	videoutils.CleanupTempFile(g.tempFile)
+	g.tempFile = tempFile
+	newPlayer, msg, err := videoutils.LoadVideo(g.videoCtx, g.player, g.tempFile, &video.PlayerOptions{
+		Volume: 1.0,
 		OnEnd: func() {
 			log.Println("Video ended")
 		},
@@ -96,28 +80,19 @@ func (g *Game) loadVideo(source string) {
 			log.Println("Pipeline error:", err)
 		},
 	})
+	g.showToast(msg)
 	if err != nil {
-		log.Printf("Failed to load video: %v", err)
-		g.showToast(fmt.Sprintf("Error: %s", err))
+		log.Println(err)
 		return
 	}
-
-	g.player = player
+	g.player = newPlayer
 	g.player.Play()
-
-	display := source
-	if len(display) > 50 {
-		display = "..." + display[len(display)-47:]
-	}
-	g.showToast(fmt.Sprintf("Loaded: %s", display))
-	ebiten.SetWindowTitle(fmt.Sprintf("Video Player — %s", filepath.Base(source)))
+	ebiten.SetWindowTitle(fmt.Sprintf("Video Player — %s", filepath.Base(g.tempFile)))
 }
 
-func (g *Game) currentVolume() float64 {
-	if g.player != nil {
-		return g.player.Volume()
-	}
-	return 0.8
+func (g *Game) showToast(msg string) {
+	g.toast = msg
+	g.toastUntil = time.Now().Add(1500 * time.Millisecond)
 }
 
 func (g *Game) Update() error {
@@ -130,8 +105,8 @@ func (g *Game) Update() error {
 					continue
 				}
 				ext := strings.ToLower(filepath.Ext(entry.Name()))
-				if videoExts[ext] {
-					g.loadVideoFromFS(droppedFS, entry.Name())
+				if videoutils.VideoExts[ext] {
+					g.loadVideo(droppedFS, entry)
 					break
 				}
 			}
@@ -262,8 +237,6 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.Black)
-
 	sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
 	p := g.player
 

@@ -1,91 +1,56 @@
+//go:build !js
+
 package main
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/realskyquest/ebiten-gstreamer/video"
+	"github.com/realskyquest/ebiten-gstreamer/videoutils"
 )
 
-type Game struct {
-	player *video.Player
-}
-
-func (g *Game) Update() error {
-	return nil
-}
-
-func (g *Game) Draw(screen *ebiten.Image) {
-	frame := g.player.Frame()
-	if frame == nil {
-		return
-	}
-
-	// Scale video to fit window
-	sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
-	vw, vh := g.player.VideoSize()
-	if vw == 0 || vh == 0 {
-		return
-	}
-
-	scaleX := float64(sw) / float64(vw)
-	scaleY := float64(sh) / float64(vh)
-	scale := scaleX
-	if scaleY < scaleX {
-		scale = scaleY
-	}
-
-	opts := &ebiten.DrawImageOptions{}
-	opts.Filter = ebiten.FilterLinear
-	opts.GeoM.Scale(scale, scale)
-	opts.GeoM.Translate(
-		(float64(sw)-float64(vw)*scale)/2,
-		(float64(sh)-float64(vh)*scale)/2,
-	)
-	screen.DrawImage(frame, opts)
-
-	ebitenutil.DebugPrint(screen,
-		fmt.Sprintf("Position: %v / %v", g.player.Position(), g.player.Duration()))
-}
-
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return outsideWidth, outsideHeight
-}
-
 func main() {
-	if len(os.Args) < 2 {
-		log.Fatal("Usage: basic <file-or-url>")
-	}
-	source := os.Args[1]
-
 	ctx, err := video.NewContext()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer ctx.Close()
 
-	player, err := ctx.NewPlayer(source, &video.PlayerOptions{
-		Volume: 0.8,
-		OnEnd: func() {
-			fmt.Println("Video ended!")
-		},
-		OnError: func(err error) {
-			fmt.Println("Error:", err)
-		},
-	})
-	if err != nil {
+	game := &Game{
+		videoCtx: ctx,
+	}
+
+	// Load a file or URL passed as the first command-line argument, if any.
+	if len(os.Args) >= 2 {
+		source := os.Args[1]
+		player, err := ctx.NewPlayer(source, &video.PlayerOptions{
+			Volume: 1.0,
+			OnEnd: func() {
+				log.Println("Video ended")
+			},
+			OnError: func(err error) {
+				log.Println("Pipeline error:", err)
+			},
+		})
+		if err != nil {
+			log.Printf("Failed to load %s: %v", source, err)
+		} else {
+			game.player = player
+			player.Play()
+			ebiten.SetWindowTitle(fmt.Sprintf("Video Player — %s", filepath.Base(source)))
+		}
+	} else {
+		ebiten.SetWindowTitle("Video Player — Drop a file to play")
+	}
+
+	if err := runGame(game); err != nil {
 		log.Fatal(err)
 	}
-	player.Play()
 
-	ebiten.SetWindowSize(1280, 720)
-	ebiten.SetWindowTitle("Ebitengine GStreamer Video Player")
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-
-	if err := ebiten.RunGame(&Game{player: player}); err != nil {
-		log.Fatal(err)
-	}
+	// Clean up any drag-and-drop temp file left over at exit.
+	videoutils.CleanupTempFile(game.tempFile)
 }

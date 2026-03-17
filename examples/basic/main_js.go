@@ -9,16 +9,6 @@ import (
 	"github.com/realskyquest/ebiten-gstreamer/video"
 )
 
-func clampVol(v float64) float64 {
-	if v < 0 {
-		return 0
-	}
-	if v > 1 {
-		return 1
-	}
-	return v
-}
-
 func main() {
 	ctx, err := video.NewContext()
 	if err != nil {
@@ -29,7 +19,6 @@ func main() {
 
 	game := &Game{
 		videoCtx: ctx,
-		savedVol: 0.8,
 	}
 
 	ebiten.SetWindowTitle("Video Player — Drop a file to play")
