@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 	"sync"
+
+	"github.com/realskyquest/ebiten-gstreamer/sidecar"
 )
 
 type MsgType uint32
@@ -34,7 +36,7 @@ const (
 	EvtBuffering    MsgType = 0x1007
 )
 
-// --- Command Payloads ---
+// Command payloads
 
 type OpenPayload struct {
 	URI             string  `json:"uri"`
@@ -62,7 +64,7 @@ type LoopPayload struct {
 	Loop bool `json:"loop"`
 }
 
-// --- Event Payloads ---
+// Event payloads
 
 type StateChangedPayload struct {
 	State   string `json:"state"` // "playing","paused","stopped","idle"
@@ -94,7 +96,7 @@ type BufferingPayload struct {
 	Percent int `json:"percent"`
 }
 
-// --- Wire Format ---
+// Wire format
 // [4 bytes: MsgType BE] [4 bytes: payload length BE] [N bytes: JSON]
 
 const headerSize = 8
@@ -105,6 +107,7 @@ type Message struct {
 	Payload json.RawMessage
 }
 
+// Decode decodes a Message into a struct.
 func Decode[T any](msg *Message) (T, error) {
 	var v T
 	if len(msg.Payload) == 0 {
@@ -125,13 +128,14 @@ func NewConn(c net.Conn) *Conn {
 
 func (c *Conn) Close() error { return c.raw.Close() }
 
+// Send sends a Message to the Sidecar.
 func (c *Conn) Send(msgType MsgType, payload any) error {
 	var body []byte
 	if payload != nil {
 		var err error
 		body, err = json.Marshal(payload)
 		if err != nil {
-			return fmt.Errorf("protocol: marshal: %w", err)
+			return fmt.Errorf("%w: %w", sidecar.ErrProtocolMarshal, err)
 		}
 	}
 
@@ -143,34 +147,35 @@ func (c *Conn) Send(msgType MsgType, payload any) error {
 	defer c.writeMu.Unlock()
 
 	if _, err := c.raw.Write(hdr); err != nil {
-		return fmt.Errorf("protocol: write header: %w", err)
+		return fmt.Errorf("%w: %w", sidecar.ErrProtocolWriteHeader, err)
 	}
 	if len(body) > 0 {
 		if _, err := c.raw.Write(body); err != nil {
-			return fmt.Errorf("protocol: write body: %w", err)
+			return fmt.Errorf("%w: %w", sidecar.ErrProtocolWriteBody, err)
 		}
 	}
 	return nil
 }
 
+// Receive receives a Message from the Sidecar.
 func (c *Conn) Receive() (*Message, error) {
 	hdr := make([]byte, headerSize)
 	if _, err := io.ReadFull(c.raw, hdr); err != nil {
-		return nil, fmt.Errorf("protocol: read header: %w", err)
+		return nil, fmt.Errorf("%w: %w", sidecar.ErrProtocolReadHeader, err)
 	}
 
 	msgType := MsgType(binary.BigEndian.Uint32(hdr[0:4]))
 	length := binary.BigEndian.Uint32(hdr[4:8])
 
 	if length > uint32(maxPayloadSize) {
-		return nil, fmt.Errorf("protocol: payload too large: %d", length)
+		return nil, fmt.Errorf("%w: %d", sidecar.ErrProtocolPayloadTooLarge, length)
 	}
 
 	var payload json.RawMessage
 	if length > 0 {
 		payload = make([]byte, length)
 		if _, err := io.ReadFull(c.raw, payload); err != nil {
-			return nil, fmt.Errorf("protocol: read body: %w", err)
+			return nil, fmt.Errorf("%w: %w", sidecar.ErrProtocolReadBody, err)
 		}
 	}
 
