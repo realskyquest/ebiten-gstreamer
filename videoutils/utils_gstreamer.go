@@ -10,9 +10,10 @@ import (
 	"path/filepath"
 )
 
-// LoadVideoFromFS copies the dropped file to a temp path on disk and returns
+// loadVideoFromFS copies the dropped file to a temp path on disk and returns
 // the path. GStreamer requires a real filesystem path, so a temp file is necessary.
-func LoadVideoFromFS(droppedFS fs.FS, name string) (string, string, error) {
+// Returns the temp file path, message, and error.
+func loadVideoFromFile(droppedFS fs.FS, name string) (string, string, error) {
 	src, err := droppedFS.Open(name)
 	if err != nil {
 		return "", "Error opening: " + name, fmt.Errorf("%w: %w", ErrOpenFailed, err)

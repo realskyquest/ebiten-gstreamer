@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io/fs"
 	"log"
 	"math"
 	"path/filepath"
-	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -22,51 +20,27 @@ type Game struct {
 	tempFile string
 }
 
-func (g *Game) loadVideo(droppedFS fs.FS, entry fs.DirEntry) {
-	tempFile, msg, err := videoutils.LoadVideoFromFS(droppedFS, entry.Name())
-	if err != nil {
-		log.Println(msg)
-		log.Println(err)
-		return
-	}
-	// Remove the previous temp file.
-	videoutils.CleanupTempFile(g.tempFile)
-	g.tempFile = tempFile
-	newPlayer, msg, err := videoutils.LoadVideo(g.videoCtx, g.player, g.tempFile, &video.PlayerOptions{
-		Volume: 1.0,
-		OnEnd: func() {
-			log.Println("Video ended")
-		},
-		OnError: func(err error) {
-			log.Println("Pipeline error:", err)
-		},
-	})
-	log.Println(msg)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	g.player = newPlayer
-	g.player.Play()
-	ebiten.SetWindowTitle(fmt.Sprintf("Video Player — %s", filepath.Base(g.tempFile)))
-}
-
 func (g *Game) Update() error {
 	// Handle drag-and-drop.
 	if droppedFS := ebiten.DroppedFiles(); droppedFS != nil {
-		entries, err := fs.ReadDir(droppedFS, ".")
-		if err == nil {
-			for _, entry := range entries {
-				if entry.IsDir() {
-					continue
-				}
-				ext := strings.ToLower(filepath.Ext(entry.Name()))
-				if videoutils.VideoExts[ext] {
-					g.loadVideo(droppedFS, entry)
-					break
-				}
-			}
+		player, tempFile, msg, err := videoutils.LoadVideoFromFS(droppedFS, g.videoCtx, g.player, g.tempFile, &video.PlayerOptions{
+			Volume: 1.0,
+			OnEnd: func() {
+				log.Println("Video ended")
+			},
+			OnError: func(err error) {
+				log.Println("Pipeline error:", err)
+			},
+		})
+		log.Println(msg)
+		if err != nil {
+			log.Println(err)
+			return nil
 		}
+		g.player = player
+		g.tempFile = tempFile
+		player.Play()
+		ebiten.SetWindowTitle(fmt.Sprintf("Video Player — %s", filepath.Base(g.tempFile)))
 	}
 
 	p := g.player
