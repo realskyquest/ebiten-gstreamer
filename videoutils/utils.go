@@ -62,7 +62,7 @@ func loadVideo(videoCtx *video.Context, player *video.Player, source string, opt
 
 	newPlayer, err := videoCtx.NewPlayer(source, opts)
 	if err != nil {
-		return nil, fmt.Sprintf("Error: %s", err), fmt.Errorf("videoutils: failed to load video: %w", err)
+		return nil, fmt.Sprintf("Error: %s", err), fmt.Errorf("%w: %w", ErrLoadVideoFailed, err)
 	}
 
 	display := source

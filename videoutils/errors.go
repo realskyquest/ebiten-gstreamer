@@ -11,4 +11,7 @@ var (
 
 	// ErrCopyFailed is returned when copying a file fails.
 	ErrCopyFailed = errors.New("videoutils: failed to copy file")
+
+	// ErrLoadVideoFailed is returned when loading a video fails.
+	ErrLoadVideoFailed = errors.New("videoutils: failed to load video")
 )
