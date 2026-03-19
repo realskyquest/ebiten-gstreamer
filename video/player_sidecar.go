@@ -79,6 +79,7 @@ func newPlayer(ctx *Context, source string, opts *PlayerOptions) (*Player, error
 		return nil, fmt.Errorf("video: start sidecar: %w", err)
 	}
 
+	var copts client.PlayerOptions
 	copts.Volume = opts.Volume
 	copts.Loop = opts.Loop
 	copts.Rate = opts.Rate
