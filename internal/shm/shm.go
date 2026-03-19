@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/realskyquest/ebiten-gstreamer/sidecar"
+	sidecar "github.com/realskyquest/ebiten-gstreamer/videosidecar"
 )
 
 // Shared memory layout (128-byte header + 2× frame buffers for double-buffering)

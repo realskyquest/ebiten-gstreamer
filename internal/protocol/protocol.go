@@ -8,7 +8,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/realskyquest/ebiten-gstreamer/sidecar"
+	sidecar "github.com/realskyquest/ebiten-gstreamer/videosidecar"
 )
 
 type MsgType uint32

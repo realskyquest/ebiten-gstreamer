@@ -16,15 +16,16 @@ import (
 
 	"github.com/realskyquest/ebiten-gstreamer/internal/protocol"
 	"github.com/realskyquest/ebiten-gstreamer/internal/shm"
+	sidecar "github.com/realskyquest/ebiten-gstreamer/videosidecar"
 )
 
 // Frame holds a decoded RGBA frame copied from shared memory.
 type Frame struct {
 	Width  uint32
 	Height uint32
-	Stride uint32
-	PtsNs  int64
-	Number uint64
+	Stride uint32 // bytes per row
+	PtsNs  int64  // presentation timestamp, nanoseconds
+	Number uint64 // frame number
 	Data   []byte // RGBA pixels, len = Stride*Height
 }
 
@@ -47,13 +48,6 @@ type PlayerOptions struct {
 	Rate            float64
 }
 
-func DefaultPlayerOptions() PlayerOptions {
-	return PlayerOptions{
-		Volume: 1.0,
-		Rate:   1.0,
-	}
-}
-
 // Config for the sidecar process.
 type Config struct {
 	SidecarBin string
@@ -63,7 +57,7 @@ type Config struct {
 }
 
 // sidecarBin returns the platform-appropriate sidecar binary name.
-// On Windows it looks for ./sidecar.exe; on all other platforms ./sidecar.
+// On Windows it looks for .\sidecar.exe; on all other platforms ./sidecar.
 func sidecarBin() string {
 	if runtime.GOOS == "windows" {
 		return ".\\sidecar.exe"
@@ -71,10 +65,12 @@ func sidecarBin() string {
 	return "./sidecar"
 }
 
+// DefaultConfig returns a Config with default values.
+// SidecarBin is set to the platform-appropriate sidecar binary name.
+// MaxWidth and MaxHeight are set to 3840x2160.
 func DefaultConfig() Config {
 	return Config{
 		SidecarBin: sidecarBin(),
-		ShmName:    fmt.Sprintf("vp_%d", os.Getpid()),
 		MaxWidth:   3840,
 		MaxHeight:  2160,
 	}
@@ -107,14 +103,27 @@ type Player struct {
 	cancel context.CancelFunc
 }
 
+// readPort reads the TCP port from the sidecar's stdout.
+func readPort(r io.Reader) (int, error) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "PORT:") {
+			var port int
+			if _, err := fmt.Sscanf(line, "PORT:%d", &port); err == nil && port > 0 {
+				return port, nil
+			}
+		}
+	}
+	return 0, sidecar.ErrClientSidecarReportPort
+}
+
 func New(cfg Config, handler EventHandler) *Player {
 	ctx, cancel := context.WithCancel(context.Background())
 	maxBytes := int(cfg.MaxWidth) * int(cfg.MaxHeight) * 4
 	return &Player{
 		cfg:      cfg,
 		handler:  handler,
-		volume:   1.0,
-		rate:     1.0,
 		frameBuf: make([]byte, maxBytes),
 		ctx:      ctx,
 		cancel:   cancel,
@@ -133,38 +142,38 @@ func (p *Player) Start() error {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("stdout pipe: %w", err)
+		return fmt.Errorf("%w: %w", sidecar.ErrClientStdoutPipe, err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start sidecar: %w", err)
+		return fmt.Errorf("%w: %w", sidecar.ErrClientSidecarStart, err)
 	}
 	p.cmd = cmd
 
 	port, err := readPort(stdout)
 	if err != nil {
 		cmd.Process.Kill()
-		return fmt.Errorf("read port: %w", err)
+		return err
 	}
 	go io.Copy(io.Discard, stdout)
 
 	raw, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 5*time.Second)
 	if err != nil {
 		cmd.Process.Kill()
-		return fmt.Errorf("connect: %w", err)
+		return fmt.Errorf("%w: %w", sidecar.ErrClientSidecarConnect, err)
 	}
 	p.conn = protocol.NewConn(raw)
 
 	msg, err := p.conn.Receive()
 	if err != nil || msg.Type != protocol.EvtReady {
 		p.Close()
-		return fmt.Errorf("expected EvtReady, got err=%v", err)
+		return fmt.Errorf("%w, got err=%v", sidecar.ErrClientSidecarReady, err)
 	}
 
 	p.mem, err = shm.Open(p.cfg.ShmName, p.cfg.MaxWidth, p.cfg.MaxHeight)
 	if err != nil {
 		p.Close()
-		return fmt.Errorf("shm open: %w", err)
+		return fmt.Errorf("%w: %w", sidecar.ErrClientSidecarShmOpen, err)
 	}
 
 	go p.eventLoop()
@@ -198,14 +207,12 @@ func (p *Player) Stop() error {
 	return p.conn.Send(protocol.CmdStop, nil)
 }
 
-// SetPosition seeks to the given offset.
 func (p *Player) SetPosition(offset time.Duration) error {
 	return p.conn.Send(protocol.CmdSeek, &protocol.SeekPayload{
 		PositionNs: offset.Nanoseconds(),
 	})
 }
 
-// Rewind seeks to the start.
 func (p *Player) Rewind() error {
 	return p.conn.Send(protocol.CmdRewind, nil)
 }
@@ -298,6 +305,7 @@ func (p *Player) ReadFrame() *Frame {
 	}
 }
 
+// Close closes the player and releases all resources.
 func (p *Player) Close() error {
 	if p.conn != nil {
 		p.conn.Send(protocol.CmdShutdown, nil)
@@ -329,7 +337,7 @@ func (p *Player) eventLoop() {
 			select {
 			case <-p.ctx.Done():
 			default:
-				log.Printf("client: event read error: %v", err)
+				log.Printf("%s: %v", sidecar.ErrClientEventRead, err)
 			}
 			return
 		}
@@ -397,18 +405,4 @@ func (p *Player) eventLoop() {
 			}
 		}
 	}
-}
-
-func readPort(r io.Reader) (int, error) {
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "PORT:") {
-			var port int
-			if _, err := fmt.Sscanf(line, "PORT:%d", &port); err == nil && port > 0 {
-				return port, nil
-			}
-		}
-	}
-	return 0, fmt.Errorf("sidecar did not report port")
 }
