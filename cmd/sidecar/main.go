@@ -22,6 +22,7 @@ import (
 
 	"github.com/realskyquest/ebiten-gstreamer/internal/protocol"
 	"github.com/realskyquest/ebiten-gstreamer/internal/shm"
+	"github.com/realskyquest/ebiten-gstreamer/videosidecar"
 )
 
 func main() {
@@ -39,17 +40,17 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// --- Shared memory ---
+	// Shared memory
 	mem, err := shm.Create(*shmName, uint32(*maxW), uint32(*maxH))
 	if err != nil {
-		log.Fatalf("shm create: %v", err)
+		log.Fatalf("%s: %v", videosidecar.ErrSidecarShmCreate, err)
 	}
 	defer mem.Close()
 
-	// --- TCP listener ---
+	// TCP listener
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
 	if err != nil {
-		log.Fatalf("listen: %v", err)
+		log.Fatalf("%s: %v", videosidecar.ErrSidecarListen, err)
 	}
 	defer ln.Close()
 
@@ -58,7 +59,7 @@ func main() {
 
 	raw, err := ln.Accept()
 	if err != nil {
-		log.Fatalf("accept: %v", err)
+		log.Fatalf("%s: %v", videosidecar.ErrSidecarAccept, err)
 	}
 	conn := protocol.NewConn(raw)
 	defer conn.Close()
@@ -211,7 +212,7 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 	// --- Create pipeline ---
 	pipeline, err := gst.NewPipeline("")
 	if err != nil {
-		s.sendError("create pipeline: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarPipeline, videosidecar.MsgCreatePipeline, err)
 		return
 	}
 	s.pipeline = pipeline
@@ -219,28 +220,28 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 	// uridecodebin
 	src, err := gst.NewElement("uridecodebin")
 	if err != nil {
-		s.sendError("uridecodebin: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarUridecodebin, videosidecar.MsgUridecodebin, err)
 		return
 	}
 	if err := src.SetProperty("uri", opts.URI); err != nil {
-		s.sendError("set uri: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarSetURI, videosidecar.MsgSetURI, err)
 		return
 	}
 
 	// ---- Video branch ----
 	vconv, err := gst.NewElement("videoconvert")
 	if err != nil {
-		s.sendError("videoconvert: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarVideoconvert, videosidecar.MsgVideoconvert, err)
 		return
 	}
 	vscale, err := gst.NewElement("videoscale")
 	if err != nil {
-		s.sendError("videoscale: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarVideoscale, videosidecar.MsgVideoscale, err)
 		return
 	}
 	capsFilter, err := gst.NewElement("capsfilter")
 	if err != nil {
-		s.sendError("capsfilter: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarCapsfilter, videosidecar.MsgCapsfilter, err)
 		return
 	}
 
@@ -250,13 +251,13 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 	}
 	caps := gst.NewCapsFromString(capsStr)
 	if err := capsFilter.SetProperty("caps", caps); err != nil {
-		s.sendError("set caps: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarSetCaps, videosidecar.MsgSetCaps, err)
 		return
 	}
 
 	videoSink, err := app.NewAppSink()
 	if err != nil {
-		s.sendError("appsink: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarAppsink, videosidecar.MsgAppsink, err)
 		return
 	}
 	videoSink.SetDrop(true)
@@ -270,28 +271,28 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 	// ---- Audio branch ----
 	aconv, err := gst.NewElement("audioconvert")
 	if err != nil {
-		s.sendError("audioconvert: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarAudioconvert, videosidecar.MsgAudioconvert, err)
 		return
 	}
 	aresample, err := gst.NewElement("audioresample")
 	if err != nil {
-		s.sendError("audioresample: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarAudioresample, videosidecar.MsgAudioresample, err)
 		return
 	}
 	vol, err := gst.NewElement("volume")
 	if err != nil {
-		s.sendError("volume: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarVolume, videosidecar.MsgVolume, err)
 		return
 	}
 	if err := vol.SetProperty("volume", s.vol); err != nil {
-		s.sendError("set volume: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarSetVolume, videosidecar.MsgSetVolume, err)
 		return
 	}
 	s.volume = vol
 
 	asink, err := gst.NewElement("autoaudiosink")
 	if err != nil {
-		s.sendError("autoaudiosink: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarAutoaudiosink, videosidecar.MsgAutoaudiosink, err)
 		return
 	}
 
@@ -304,13 +305,13 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 
 	// Link video branch: vconv → vscale → capsFilter → appsink
 	if err := gst.ElementLinkMany(vconv, vscale, capsFilter, videoSink.Element); err != nil {
-		s.sendError("link video branch: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarLinkVideo, videosidecar.MsgLinkVideoBranch, err)
 		return
 	}
 
 	// Link audio branch: aconv → aresample → volume → autoaudiosink
 	if err := gst.ElementLinkMany(aconv, aresample, vol, asink); err != nil {
-		s.sendError("link audio branch: " + err.Error())
+		s.sendError(videosidecar.ErrSidecarLinkAudio, videosidecar.MsgLinkAudioBranch, err)
 		return
 	}
 
@@ -601,9 +602,7 @@ func (s *sidecar) cmdSeek(posNs int64) {
 	// SeekTime with Flush|Accurate
 	ok := pipeline.SeekTime(time.Duration(posNs), gst.SeekFlagFlush|gst.SeekFlagAccurate)
 	if !ok {
-		s.conn.Send(protocol.EvtError, &protocol.ErrorPayload{
-			Message: "seek failed: source is not seekable",
-		})
+		s.sendError(videosidecar.ErrSidecarSeekFailed, videosidecar.MsgSeekFailed, nil)
 		return
 	}
 	s.eos.Store(false)
@@ -700,7 +699,11 @@ func (s *sidecar) teardownLocked() {
 	s.mainLoop = nil
 }
 
-func (s *sidecar) sendError(msg string) {
+func (s *sidecar) sendError(err error, baseMsg string, underlying error) {
+	msg := baseMsg
+	if underlying != nil {
+		msg = fmt.Sprintf("%s - %s - %v", err, baseMsg, underlying)
+	}
 	log.Printf("ERROR: %s", msg)
 	s.conn.Send(protocol.EvtError, &protocol.ErrorPayload{Message: msg})
 }

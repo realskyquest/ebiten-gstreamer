@@ -61,3 +61,63 @@ var (
 	// ErrClientEventRead is returned when reading an event fails.
 	ErrClientEventRead = errors.New("client: failed to read event")
 )
+
+// sidecar errors
+var (
+	// ErrSidecarShmCreate is returned when creating the shared memory region fails.
+	ErrSidecarShmCreate = errors.New("sidecar: failed to create shm")
+
+	// ErrSidecarListen is returned when the sidecar fails to listen on a port.
+	ErrSidecarListen = errors.New("sidecar: listen failed")
+
+	// ErrSidecarAccept is returned when the sidecar fails to accept a connection.
+	ErrSidecarAccept = errors.New("sidecar: accept failed")
+
+	// ErrSidecarPipeline is returned when creating the GStreamer pipeline fails.
+	ErrSidecarPipeline = errors.New("sidecar: create pipeline")
+
+	// ErrSidecarUridecodebin is returned when creating uridecodebin fails.
+	ErrSidecarUridecodebin = errors.New("sidecar: uridecodebin")
+
+	// ErrSidecarSetURI is returned when setting the URI property fails.
+	ErrSidecarSetURI = errors.New("sidecar: set uri")
+
+	// ErrSidecarVideoconvert is returned when creating videoconvert fails.
+	ErrSidecarVideoconvert = errors.New("sidecar: videoconvert")
+
+	// ErrSidecarVideoscale is returned when creating videoscale fails.
+	ErrSidecarVideoscale = errors.New("sidecar: videoscale")
+
+	// ErrSidecarCapsfilter is returned when creating capsfilter fails.
+	ErrSidecarCapsfilter = errors.New("sidecar: capsfilter")
+
+	// ErrSidecarSetCaps is returned when setting the caps property fails.
+	ErrSidecarSetCaps = errors.New("sidecar: set caps")
+
+	// ErrSidecarAppsink is returned when creating appsink fails.
+	ErrSidecarAppsink = errors.New("sidecar: appsink")
+
+	// ErrSidecarAudioconvert is returned when creating audioconvert fails.
+	ErrSidecarAudioconvert = errors.New("sidecar: audioconvert")
+
+	// ErrSidecarAudioresample is returned when creating audioresample fails.
+	ErrSidecarAudioresample = errors.New("sidecar: audioresample")
+
+	// ErrSidecarVolume is returned when creating volume element fails.
+	ErrSidecarVolume = errors.New("sidecar: volume")
+
+	// ErrSidecarSetVolume is returned when setting the volume property fails.
+	ErrSidecarSetVolume = errors.New("sidecar: set volume")
+
+	// ErrSidecarAutoaudiosink is returned when creating autoaudiosink fails.
+	ErrSidecarAutoaudiosink = errors.New("sidecar: autoaudiosink")
+
+	// ErrSidecarLinkVideo is returned when linking the video branch fails.
+	ErrSidecarLinkVideo = errors.New("sidecar: link video branch")
+
+	// ErrSidecarLinkAudio is returned when linking the audio branch fails.
+	ErrSidecarLinkAudio = errors.New("sidecar: link audio branch")
+
+	// ErrSidecarSeekFailed is returned when a seek operation fails.
+	ErrSidecarSeekFailed = errors.New("sidecar: seek failed")
+)
