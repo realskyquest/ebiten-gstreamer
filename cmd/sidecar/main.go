@@ -209,7 +209,7 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 		s.vol = 1.0
 	}
 
-	// --- Create pipeline ---
+	// Create pipeline
 	pipeline, err := gst.NewPipeline("")
 	if err != nil {
 		s.sendError(videosidecar.ErrSidecarPipeline, videosidecar.MsgCreatePipeline, err)
@@ -228,7 +228,7 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 		return
 	}
 
-	// ---- Video branch ----
+	// Video branch
 	vconv, err := gst.NewElement("videoconvert")
 	if err != nil {
 		s.sendError(videosidecar.ErrSidecarVideoconvert, videosidecar.MsgVideoconvert, err)
@@ -268,7 +268,7 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 	videoSink.SetMaxBuffers(maxBuf)
 	s.sink = videoSink
 
-	// ---- Audio branch ----
+	// Audio branch
 	aconv, err := gst.NewElement("audioconvert")
 	if err != nil {
 		s.sendError(videosidecar.ErrSidecarAudioconvert, videosidecar.MsgAudioconvert, err)
@@ -296,7 +296,7 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 		return
 	}
 
-	// ---- Assemble pipeline ----
+	// Assemble pipeline
 	pipeline.AddMany(
 		src,
 		vconv, vscale, capsFilter, videoSink.Element,
@@ -315,7 +315,7 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 		return
 	}
 
-	// ---- Dynamic pad linking (identical to your pad-added handler) ----
+	// Dynamic pad linking (identical to pad-added handler)
 	src.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
 		caps := pad.GetCurrentCaps()
 		if caps == nil {
@@ -341,10 +341,10 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 		}
 	})
 
-	// ---- Bus watch ----
+	// Bus watch
 	s.setupBusWatch()
 
-	// ---- Goroutines ----
+	// Goroutines
 	s.loopDone = make(chan struct{})
 	s.pullDone = make(chan struct{})
 
