@@ -52,14 +52,9 @@ func mimeForExt(ext string) string {
 	}
 }
 
-// loadVideo closes the current player (if any) and opens a new video from source.
+// loadVideo opens a new video from source.
 // Returns the new player, message, and error.
-func loadVideo(videoCtx *video.Context, player *video.Player, source string, opts *video.PlayerOptions) (*video.Player, string, error) {
-	if player != nil {
-		player.Close()
-		player = nil
-	}
-
+func loadVideo(videoCtx *video.Context, source string, opts *video.PlayerOptions) (*video.Player, string, error) {
 	newPlayer, err := videoCtx.NewPlayer(source, opts)
 	if err != nil {
 		return nil, fmt.Sprintf("Error: %s", err), fmt.Errorf("%w: %w", ErrLoadVideoFailed, err)
@@ -86,21 +81,24 @@ func LoadVideoFromFS(droppedFS fs.FS, videoCtx *video.Context, player *video.Pla
 			}
 			ext := strings.ToLower(filepath.Ext(entry.Name()))
 			if videoExts[ext] {
+				// Close current stream
+				if player != nil {
+					player.Close()
+					player = nil
+					CleanupTempFile(tempFile)
+				}
+
 				newTempFile, msg, err := loadVideoFromFile(droppedFS, entry.Name())
 				if err != nil {
 					return nil, "", msg, err
 				}
 
-				// Remove the previous temp file.
-				CleanupTempFile(tempFile)
-
-				t = newTempFile
-
-				newPlayer, msg, err := loadVideo(videoCtx, player, t, opts)
+				newPlayer, msg, err := loadVideo(videoCtx, newTempFile, opts)
 				if err != nil {
 					return nil, "", msg, err
 				}
 				p = newPlayer
+				t = newTempFile
 				m = msg
 
 				break
