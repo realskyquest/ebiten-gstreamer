@@ -135,14 +135,19 @@ func (p *Player) Frame() *ebiten.Image {
 // Play starts or resumes playback.
 func (p *Player) Play() {
 	if err := p.inner.Play(); err != nil {
-		panic(fmt.Sprintf("video: Play: %v", err))
+		if p.opts.OnError != nil {
+			p.opts.OnError(fmt.Errorf("video: Play: %w", err))
+		}
+		return
 	}
 }
 
 // Pause pauses playback. Call Play to resume.
 func (p *Player) Pause() {
 	if err := p.inner.Pause(); err != nil {
-		panic(fmt.Sprintf("video: Pause: %v", err))
+		if p.opts.OnError != nil {
+			p.opts.OnError(fmt.Errorf("video: Pause: %w", err))
+		}
 	}
 }
 
@@ -183,7 +188,9 @@ func (p *Player) Rewind() error {
 // SetVolume sets the audio volume. Range: 0.0 (muted) to 1.0+ (>1 amplifies).
 func (p *Player) SetVolume(v float64) {
 	if err := p.inner.SetVolume(v); err != nil {
-		panic(fmt.Sprintf("video: SetVolume: %v", err))
+		if p.opts.OnError != nil {
+			p.opts.OnError(fmt.Errorf("video: SetVolume: %w", err))
+		}
 	}
 }
 
@@ -200,7 +207,9 @@ func (p *Player) Loop() bool {
 // SetLoop sets whether the video should loop.
 func (p *Player) SetLoop(loop bool) {
 	if err := p.inner.SetLoop(loop); err != nil {
-		panic(fmt.Sprintf("video: SetLoop: %v", err))
+		if p.opts.OnError != nil {
+			p.opts.OnError(fmt.Errorf("video: SetLoop: %w", err))
+		}
 	}
 }
 
@@ -212,7 +221,9 @@ func (p *Player) Rate() float64 {
 // SetRate sets the playback rate.
 func (p *Player) SetRate(rate float64) {
 	if err := p.inner.SetRate(rate); err != nil {
-		panic(fmt.Sprintf("video: SetRate: %v", err))
+		if p.opts.OnError != nil {
+			p.opts.OnError(fmt.Errorf("video: SetRate: %w", err))
+		}
 	}
 }
 
