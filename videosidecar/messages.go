@@ -20,11 +20,3 @@ const (
 	MsgLinkAudioBranch = "link audio branch"
 	MsgSeekFailed      = "seek failed: source is not seekable"
 )
-
-// FormatError formats a message with the underlying error.
-func FormatError(baseMsg string, err error) string {
-	if err == nil {
-		return baseMsg
-	}
-	return baseMsg + ": " + err.Error()
-}
