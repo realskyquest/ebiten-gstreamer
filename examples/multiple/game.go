@@ -40,12 +40,12 @@ func (g *Game) Update() error {
 	// Handle drag-and-drop — each dropped file goes to the next slot in turn.
 	if droppedFS := ebiten.DroppedFiles(); droppedFS != nil {
 		player, tempFile, msg, err := videoutils.LoadVideoFromFS(droppedFS, g.videoCtx, g.slots[g.dropTarget].player, g.slots[g.dropTarget].tempFile, &video.PlayerOptions{
-			Volume: 1.0,
+			Volume: 0.8,
 			OnEnd: func() {
-				log.Println("Video ended")
+				log.Printf("Slot %d: Video ended", g.dropTarget)
 			},
 			OnError: func(err error) {
-				log.Println("Pipeline error:", err)
+				log.Printf("Slot %d: Pipeline error: %v", g.dropTarget, err)
 			},
 		})
 		log.Println(msg)
