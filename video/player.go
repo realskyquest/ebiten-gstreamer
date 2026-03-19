@@ -528,8 +528,7 @@ func (p *Player) SetRate(rate float64) {
 }
 
 // Close closes the stream.
-// Close returns error when the player is already closed.
-func (p *Player) Close() error {
+func (p *Player) Close() {
 	if p.closed.CompareAndSwap(false, true) {
 		p.pipeline.BlockSetState(gst.StateNull)
 		p.playing.Store(false)
@@ -550,5 +549,4 @@ func (p *Player) Close() error {
 			p.ctx.removePlayer(p)
 		}
 	}
-	return nil
 }

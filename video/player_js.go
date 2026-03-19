@@ -316,7 +316,7 @@ func (p *Player) VideoSize() (int, int) {
 }
 
 // Close removes the <video> element from the DOM and releases all resources.
-func (p *Player) Close() error {
+func (p *Player) Close() {
 	if p.closed.CompareAndSwap(false, true) {
 		p.video.Call("pause")
 		p.video.Get("parentNode").Call("removeChild", p.video)
@@ -329,5 +329,4 @@ func (p *Player) Close() error {
 			p.ctx.removePlayer(p)
 		}
 	}
-	return nil
 }

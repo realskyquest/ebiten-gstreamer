@@ -306,7 +306,7 @@ func (p *Player) ReadFrame() *Frame {
 }
 
 // Close closes the player and releases all resources.
-func (p *Player) Close() error {
+func (p *Player) Close() {
 	if p.conn != nil {
 		p.conn.Send(protocol.CmdShutdown, nil)
 		// Give sidecar a moment to clean up
@@ -323,7 +323,6 @@ func (p *Player) Close() error {
 		p.cmd.Process.Kill()
 		p.cmd.Wait()
 	}
-	return nil
 }
 
 func (p *Player) Done() <-chan struct{} {

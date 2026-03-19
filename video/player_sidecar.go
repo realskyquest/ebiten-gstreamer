@@ -223,7 +223,7 @@ func (p *Player) VideoSize() (int, int) {
 }
 
 // Close releases all resources, including the sidecar process.
-func (p *Player) Close() error {
+func (p *Player) Close() {
 	p.mu.Lock()
 	if p.frameImg != nil {
 		p.frameImg.Deallocate()
@@ -231,12 +231,8 @@ func (p *Player) Close() error {
 	}
 	p.mu.Unlock()
 
-	if err := p.inner.Close(); err != nil {
-		return err
-	}
-
+	p.inner.Close()
 	if p.ctx != nil {
 		p.ctx.removePlayer(p)
 	}
-	return nil
 }
