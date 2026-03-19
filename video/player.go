@@ -141,6 +141,11 @@ func (p *Player) buildPipeline() error {
 	if err := vol.SetProperty("volume", p.opts.Volume); err != nil {
 		return err
 	}
+	if p.opts.Muted {
+		if err := vol.SetProperty("mute", true); err != nil {
+			return err
+		}
+	}
 	p.volume = vol
 
 	asink, err := gst.NewElement("autoaudiosink")

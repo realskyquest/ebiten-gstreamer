@@ -12,6 +12,9 @@ type PlayerOptions struct {
 	// Volume sets the initial volume. Range: 0.0 (muted) to 1.0 (full). Default: 1.0.
 	Volume float64
 
+	// Muted mutes the video. Default: false.
+	Muted bool
+
 	// MaxBufferedFrames controls the appsink queue depth.
 	// Higher values increase memory usage but smooth over decode stalls.
 	// 0 means use default (2).
@@ -37,7 +40,7 @@ type PlayerOptions struct {
 }
 
 func (o *PlayerOptions) defaults() {
-	if o.Volume == 0 {
+	if o.Volume == 0 && !o.Muted {
 		o.Volume = 1.0
 	}
 	if o.Rate == 0 {
