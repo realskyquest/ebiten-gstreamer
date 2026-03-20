@@ -26,7 +26,7 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: go test -v -race -count=1 ./internal/shm/... ./videoutils/...
+        run: go test -v -race -count=1 ./internal/shm/...
 
   build-native:
     name: Build native (${{ matrix.os }})
@@ -44,7 +44,7 @@ jobs:
         with:
           go-version: stable
 
-      - name: Install GStreamer (Linux)
+      - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -55,7 +55,13 @@ jobs:
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
             gstreamer1.0-plugins-bad \
-            gstreamer1.0-tools
+            gstreamer1.0-tools \
+            libx11-dev \
+            libxrandr-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libxi-dev \
+            libgl-dev
 
       - name: Install GStreamer (macOS)
         if: runner.os == 'macOS'
