@@ -15,6 +15,7 @@ const (
 	MsgAudioresample   = "audioresample"
 	MsgVolume          = "volume"
 	MsgSetVolume       = "set volume"
+	MsgSetMute         = "set mute"
 	MsgAutoaudiosink   = "autoaudiosink"
 	MsgLinkVideoBranch = "link video branch"
 	MsgLinkAudioBranch = "link audio branch"

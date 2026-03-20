@@ -44,6 +44,7 @@ type PlayerOptions struct {
 	Height          int
 	MaxBufferFrames uint
 	Volume          float64
+	Muted           bool
 	Loop            bool
 	Rate            float64
 }

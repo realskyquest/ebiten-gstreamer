@@ -69,7 +69,7 @@ func (g *Game) Update() error {
 	// Handle drag-and-drop.
 	if droppedFS := ebiten.DroppedFiles(); droppedFS != nil {
 		player, tempFile, msg, err := videoutils.LoadVideoFromFS(droppedFS, g.videoCtx, g.player, g.tempFile, &video.PlayerOptions{
-			Volume: 8.0,
+			Volume: 0.8,
 			OnEnd: func() {
 				log.Println("Video ended")
 			},

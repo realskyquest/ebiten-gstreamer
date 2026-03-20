@@ -81,6 +81,7 @@ func newPlayer(ctx *Context, source string, opts *PlayerOptions) (*Player, error
 
 	var copts client.PlayerOptions
 	copts.Volume = opts.Volume
+	copts.Muted = opts.Muted
 	copts.Loop = opts.Loop
 	copts.Rate = opts.Rate
 	if opts.Width > 0 {

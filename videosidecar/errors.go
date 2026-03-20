@@ -106,6 +106,9 @@ var (
 	// ErrSidecarVolume is returned when creating volume element fails.
 	ErrSidecarVolume = errors.New("sidecar: volume")
 
+	// ErrSidecarSetMute is returned when setting the volume property fails.
+	ErrSidecarSetMute = errors.New("sidecar: set mute")
+
 	// ErrSidecarSetVolume is returned when setting the volume property fails.
 	ErrSidecarSetVolume = errors.New("sidecar: set volume")
 

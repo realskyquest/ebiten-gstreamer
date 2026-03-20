@@ -45,6 +45,7 @@ type OpenPayload struct {
 	Height          int     `json:"height,omitempty"`
 	MaxBufferFrames uint    `json:"max_buffer_frames,omitempty"`
 	Volume          float64 `json:"volume"`
+	Muted           bool    `json:"muted,omitempty"`
 	Loop            bool    `json:"loop"`
 	Rate            float64 `json:"rate"`
 }

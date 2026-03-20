@@ -311,6 +311,12 @@ func (s *sidecar) cmdOpen(opts protocol.OpenPayload) {
 		return
 	}
 	s.volume = vol
+	if opts.Muted {
+		if err := vol.SetProperty("mute", true); err != nil {
+			s.sendError(videosidecar.ErrSidecarSetMute, videosidecar.MsgSetMute, err)
+			return
+		}
+	}
 
 	asink, err := gst.NewElement("autoaudiosink")
 	if err != nil {
