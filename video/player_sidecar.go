@@ -174,9 +174,7 @@ func (p *Player) Duration() time.Duration {
 
 // SetPosition seeks to the given offset.
 func (p *Player) SetPosition(offset time.Duration) error {
-	if p.inner.IsEOS() {
-		// Allow seeking after EOS, matching native behaviour.
-	}
+	// Seeking after EOS is valid and resets the EOS state inside the sidecar.
 	return p.inner.SetPosition(offset)
 }
 
