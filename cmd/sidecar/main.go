@@ -138,8 +138,9 @@ func (s *sidecar) commandLoop() {
 		switch msg.Type {
 		case protocol.CmdOpen:
 			var pl protocol.OpenPayload
-			json.Unmarshal(msg.Payload, &pl)
-			s.cmdOpen(pl)
+			if s.decode(msg, &pl) {
+				s.cmdOpen(pl)
+			}
 
 		case protocol.CmdPlay:
 			s.cmdPlay()
@@ -152,25 +153,29 @@ func (s *sidecar) commandLoop() {
 
 		case protocol.CmdSeek:
 			var pl protocol.SeekPayload
-			json.Unmarshal(msg.Payload, &pl)
-			s.cmdSeek(pl.PositionNs)
+			if s.decode(msg, &pl) {
+				s.cmdSeek(pl.PositionNs)
+			}
 
 		case protocol.CmdSetVolume:
 			var pl protocol.VolumePayload
-			json.Unmarshal(msg.Payload, &pl)
-			s.cmdSetVolume(pl.Volume)
+			if s.decode(msg, &pl) {
+				s.cmdSetVolume(pl.Volume)
+			}
 
 		case protocol.CmdSetRate:
 			var pl protocol.RatePayload
-			json.Unmarshal(msg.Payload, &pl)
-			s.cmdSetRate(pl.Rate)
+			if s.decode(msg, &pl) {
+				s.cmdSetRate(pl.Rate)
+			}
 
 		case protocol.CmdSetLoop:
 			var pl protocol.LoopPayload
-			json.Unmarshal(msg.Payload, &pl)
-			s.mu.Lock()
-			s.loop = pl.Loop
-			s.mu.Unlock()
+			if s.decode(msg, &pl) {
+				s.mu.Lock()
+				s.loop = pl.Loop
+				s.mu.Unlock()
+			}
 
 		case protocol.CmdRewind:
 			s.cmdSeek(0)
@@ -697,6 +702,16 @@ func (s *sidecar) teardownLocked() {
 	s.volume = nil
 	s.sink = nil
 	s.mainLoop = nil
+}
+
+func (s *sidecar) decode(msg *protocol.Message, v any) bool {
+	if err := json.Unmarshal(msg.Payload, v); err != nil {
+		errMsg := fmt.Sprintf("malformed %T payload: %v", v, err)
+		log.Printf("ERROR: %s", errMsg)
+		s.conn.Send(protocol.EvtError, &protocol.ErrorPayload{Message: errMsg})
+		return false
+	}
+	return true
 }
 
 func (s *sidecar) sendError(err error, baseMsg string, underlying error) {
