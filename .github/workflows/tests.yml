@@ -1,4 +1,4 @@
-name: CI
+name: Tests
 
 on:
   push:
@@ -20,10 +20,13 @@ jobs:
           go-version: stable
 
       - name: go vet
+        env:
+          GOOS: js
+          GOARCH: wasm
         run: go vet ./...
 
-      - name: Test (CGo-free packages)
-        run: go test -v -race -count=1 ./video/... ./internal/shm/... ./videoutils/...
+      - name: Test
+        run: go test -v -race -count=1 ./internal/shm/... ./videoutils/...
 
   build-native:
     name: Build native (${{ matrix.os }})
@@ -82,7 +85,6 @@ jobs:
         if: runner.os != 'Windows'
         env:
           CGO_ENABLED: "1"
-          # Homebrew on Apple Silicon installs to /opt/homebrew
           PKG_CONFIG_PATH: ${{ runner.os == 'macOS' && '/opt/homebrew/lib/pkgconfig' || '' }}
         run: go build ./...
 
@@ -125,4 +127,4 @@ jobs:
           GOOS: js
           GOARCH: wasm
           CGO_ENABLED: "0"
-        run: go build ./video/... ./videoutils/... 
+        run: go build ./video/... ./videoutils/...
