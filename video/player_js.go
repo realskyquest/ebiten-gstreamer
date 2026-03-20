@@ -76,30 +76,37 @@ func newPlayer(ctx *Context, src string, opts *PlayerOptions) (*Player, error) {
 
 	p.setupEventListeners()
 
-	// Wait for HAVE_METADATA (readyState >= 1) so dimensions are known.
 	ready := make(chan error, 1)
+
+	onMetadata := js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		p.videoW = video.Get("videoWidth").Int()
+		p.videoH = video.Get("videoHeight").Int()
+
+		canvas.Set("width", p.videoW)
+		canvas.Set("height", p.videoH)
+
+		p.pixels = make([]byte, p.videoW*p.videoH*4)
+		p.videoImage = ebiten.NewImage(p.videoW, p.videoH)
+		p.ready.Store(true)
+		ready <- nil
+		return nil
+	})
+	p.jsFuncs = append(p.jsFuncs, onMetadata)
+	video.Call("addEventListener", "loadedmetadata", onMetadata, map[string]any{"once": true})
+
+	onError := js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		ready <- fmt.Errorf("video: failed to load metadata: %s", src)
+		return nil
+	})
+	p.jsFuncs = append(p.jsFuncs, onError)
+	video.Call("addEventListener", "error", onError, map[string]any{"once": true})
+
+	// Timeout fallback — still needed for stalled network loads
 	go func() {
-		deadline := time.Now().Add(10 * time.Second)
-		for {
-			if time.Now().After(deadline) {
-				ready <- fmt.Errorf("video: timed out waiting for metadata: %s", src)
-				return
-			}
-			if p.video.Get("readyState").Int() >= 1 {
-				p.videoW = video.Get("videoWidth").Int()
-				p.videoH = video.Get("videoHeight").Int()
-
-				canvas.Set("width", p.videoW)
-				canvas.Set("height", p.videoH)
-
-				p.pixels = make([]byte, p.videoW*p.videoH*4)
-				p.videoImage = ebiten.NewImage(p.videoW, p.videoH)
-
-				p.ready.Store(true)
-				ready <- nil
-				return
-			}
-			time.Sleep(16 * time.Millisecond)
+		select {
+		case <-ready:
+		case <-time.After(10 * time.Second):
+			ready <- fmt.Errorf("video: timed out waiting for metadata: %s", src)
 		}
 	}()
 
