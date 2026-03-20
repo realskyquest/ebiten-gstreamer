@@ -309,8 +309,25 @@ func (p *Player) ReadFrame() *Frame {
 func (p *Player) Close() {
 	if p.conn != nil {
 		p.conn.Send(protocol.CmdShutdown, nil)
-		// Give sidecar a moment to clean up
-		time.Sleep(100 * time.Millisecond)
+
+		// Wait for sidecar to acknowledge shutdown, with a timeout.
+		ackCh := make(chan struct{}, 1)
+		go func() {
+			for {
+				msg, err := p.conn.Receive()
+				if err != nil {
+					break
+				}
+				if msg.Type == protocol.EvtShutdownAck {
+					close(ackCh)
+					return
+				}
+			}
+		}()
+		select {
+		case <-ackCh:
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 	p.cancel()
 	if p.mem != nil {

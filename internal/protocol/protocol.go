@@ -34,6 +34,7 @@ const (
 	EvtError        MsgType = 0x1005
 	EvtEOS          MsgType = 0x1006
 	EvtBuffering    MsgType = 0x1007
+	EvtShutdownAck  MsgType = 0x10FF
 )
 
 // Command payloads

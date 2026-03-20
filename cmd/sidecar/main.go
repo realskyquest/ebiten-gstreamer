@@ -182,6 +182,7 @@ func (s *sidecar) commandLoop() {
 
 		case protocol.CmdShutdown:
 			s.teardown()
+			s.conn.Send(protocol.EvtShutdownAck, nil)
 			s.cancel()
 			return
 		}
