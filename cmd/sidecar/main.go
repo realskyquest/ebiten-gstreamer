@@ -1,5 +1,18 @@
 //go:build !js
 
+// Package main implements the ebiten-gstreamer sidecar process.
+//
+// The sidecar is a helper binary that isolates GStreamer and CGo from the
+// host application. One sidecar process is launched per video.Player when
+// built with the "sidecar" build tag.
+//
+// Each sidecar instance serves exactly one TCP client connection. After the
+// client disconnects (or sends CmdShutdown), the process exits. This is by
+// design: shared memory is sized at startup and cannot be reconfigured while
+// a client is connected. To play multiple videos simultaneously, the host
+// application launches one sidecar per player (handled automatically by
+// internal/client).
+
 package main
 
 import (
@@ -61,6 +74,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s: %v", videosidecar.ErrSidecarAccept, err)
 	}
+	// Stop listening, this process serves exactly one client connection.
+	// The host launches a separate sidecar process per video.Player.
+	ln.Close()
 	conn := protocol.NewConn(raw)
 	defer conn.Close()
 
