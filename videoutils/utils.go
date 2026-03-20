@@ -108,3 +108,12 @@ func LoadVideoFromFS(droppedFS fs.FS, videoCtx *video.Context, player *video.Pla
 
 	return p, t, m, nil
 }
+
+// LoadVideoFromPath opens a video from a file path or URL and returns the
+// new Player. The caller is responsible for closing the previous player
+// (if any) before calling this.
+//
+// Returns the new player, a display message, and any error.
+func LoadVideoFromPath(source string, videoCtx *video.Context, opts *video.PlayerOptions) (*video.Player, string, error) {
+	return loadVideo(videoCtx, source, opts)
+}
