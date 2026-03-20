@@ -19,9 +19,8 @@ func initContext(_ *Context) error {
 // Player implements video playback via an HTML5 <video> element.
 // All methods are safe for concurrent use.
 type Player struct {
-	ctx    *Context
-	opts   *PlayerOptions
-	volume float64
+	ctx  *Context
+	opts *PlayerOptions
 
 	video  js.Value // <video> DOM element
 	canvas js.Value // offscreen <canvas> for pixel readback
@@ -46,9 +45,8 @@ type Player struct {
 // or returns an error after a 10-second timeout.
 func newPlayer(ctx *Context, src string, opts *PlayerOptions) (*Player, error) {
 	p := &Player{
-		ctx:    ctx,
-		opts:   opts,
-		volume: opts.Volume,
+		ctx:  ctx,
+		opts: opts,
 	}
 
 	doc := js.Global().Get("document")
@@ -274,6 +272,11 @@ func (p *Player) Duration() time.Duration {
 	return time.Duration(secs * float64(time.Second))
 }
 
+// Volume returns the current audio volume.
+func (p *Player) Volume() float64 {
+	return p.opts.Volume
+}
+
 // SetVolume sets the audio volume. Range: 0.0 (muted) to 1.0 (full).
 // Values outside this range are clamped.
 func (p *Player) SetVolume(v float64) {
@@ -287,12 +290,7 @@ func (p *Player) SetVolume(v float64) {
 	}
 	p.video.Set("volume", v)
 	p.video.Set("muted", v == 0)
-	p.volume = v
-}
-
-// Volume returns the current audio volume.
-func (p *Player) Volume() float64 {
-	return p.volume
+	p.opts.Volume = v
 }
 
 // Loop returns whether the video is set to loop.
