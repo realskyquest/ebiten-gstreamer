@@ -61,6 +61,7 @@ jobs:
             libxcursor-dev \
             libxinerama-dev \
             libxi-dev \
+            libxxf86vm-dev \
             libgl-dev
 
       - name: Install GStreamer (macOS)
