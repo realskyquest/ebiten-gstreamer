@@ -129,12 +129,15 @@ func (p *Player) setupEventListeners() {
 	}
 
 	add("ended", func(_ js.Value, _ []js.Value) interface{} {
-		p.eos.Store(true)
-		p.playing.Store(false)
 		if p.opts.Loop {
+			// Seamless restart: don't flip eos/playing, no OnEnd callback.
 			p.video.Set("currentTime", 0)
 			p.video.Call("play")
-		} else if p.opts.OnEnd != nil {
+			return nil
+		}
+		p.eos.Store(true)
+		p.playing.Store(false)
+		if p.opts.OnEnd != nil {
 			p.opts.OnEnd()
 		}
 		return nil
